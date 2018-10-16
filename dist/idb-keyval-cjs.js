@@ -4,6 +4,7 @@ Object.defineProperty(exports, '__esModule', { value: true });
 
 class Store {
     constructor(dbName = 'keyval-store', storeName = 'keyval') {
+        this.dbName = dbName;
         this.storeName = storeName;
         this._dbp = new Promise((resolve, reject) => {
             const openreq = indexedDB.open(dbName, 1);
@@ -25,9 +26,15 @@ class Store {
     }
 }
 let store;
+let expireStore;
 function getDefaultStore() {
     if (!store)
         store = new Store();
+    return store;
+}
+function getExpireStore(dbName) {
+    if (!expireStore)
+        expireStore = new Store(dbName, 'keysToExpire');
     return store;
 }
 function get(key, store = getDefaultStore()) {
@@ -42,26 +49,11 @@ function set(key, value, expire = 0, store = getDefaultStore()) {
     }).then(function () {
         // If this key should expire:
         if (expire) {
-            //let storeContext = store;
-            // Get all keys that will expire:
-            get('_keysToExpire').then(val => {
-                // If there is no _keysToExpire yet:
-                if (!val) {
-                    val = {};
-                }
-                // Transform key into string:
-                if (key instanceof Date) {
-                    key = key.getTime();
-                }
-                else if (key instanceof Array) {
-                    key = key.toString();
-                }
-                // Calculate when this key should expire:
-                let ts = Math.round((new Date()).getTime() / 1000);
-                val[key] = ts + expire;
-                store._withIDBStore('readwrite', store => {
-                    store.put(val, '_keysToExpire');
-                });
+            // Get expired keys store for this DB:
+            store = getExpireStore(store.dbName);
+            let ts = Math.round((new Date()).getTime() / 1000);
+            store._withIDBStore('readwrite', store => {
+                store.put(key, ts);
             });
         }
     });

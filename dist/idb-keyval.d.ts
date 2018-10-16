@@ -1,4 +1,5 @@
 export declare class Store {
+    readonly dbName: string;
     readonly storeName: string;
     readonly _dbp: Promise<IDBDatabase>;
     constructor(dbName?: string, storeName?: string);
