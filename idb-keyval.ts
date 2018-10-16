@@ -50,13 +50,16 @@ export function set(key: IDBValidKey, value: any, expire = 0, store = getDefault
   }).then(function(){
     // If this key should expire:
     if (expire) {
+      console.log('setting key to expire')
       // Get expired keys store for this DB:
+      console.log(store.dbName)
       store = getExpireStore(store.dbName);
+      console.log(store)
 
       let ts = Math.round((new Date()).getTime() / 1000);
 
       store._withIDBStore('readwrite', store => {
-        store.put(key, ts);
+        store.put(key, ts + expire);
       });
     }
   });
