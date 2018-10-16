@@ -27,6 +27,12 @@ export class Store {
 let store: Store;
 let expireStore: Store;
 
+interface ExpireStoreItem {
+  timestamp: number,
+  store: string,
+  key: IDBValidKey
+}
+
 function getCurrentTime(): number {
   return Math.round((new Date()).getTime() / 1000);
 }
@@ -47,15 +53,16 @@ function getExpireStore(dbName: string) {
 
         for (let key of keys) {
           get(key, expireStore).then(val => {
-            if (val < ts) {
-              del(key, expireStore)
-            }
+            console.log(val)
+            //if (val && val < ts) {
+            //  del(key, expireStore)
+            //}
           })
         }
       });
     }, 3 * 60 * 1000);
   }
-  return store;
+  return expireStore;
 }
 
 export function get<Type>(key: IDBValidKey, store = getDefaultStore()): Promise<Type> {
@@ -77,10 +84,16 @@ export function set(key: IDBValidKey, value: any, store = getDefaultStore(), exp
       store = getExpireStore(store.dbName);
       console.log(store)
 
-      let ts = getCurrentTime();
+      let expireItem: ExpireStoreItem = {
+        timestamp: getCurrentTime(),
+        store: store.storeName,
+        key: key
+      }
+
+      key = store.dbName +'_'+ key;
 
       store._withIDBStore('readwrite', store => {
-        store.put(key, ts + expire);
+        store.put(expireItem, key);
       });
     }
   });

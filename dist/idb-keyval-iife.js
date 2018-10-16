@@ -43,15 +43,16 @@ function getExpireStore(dbName) {
                 let ts = getCurrentTime();
                 for (let key of keys) {
                     get(key, expireStore).then(val => {
-                        if (val < ts) {
-                            del(key, expireStore);
-                        }
+                        console.log(val);
+                        //if (val && val < ts) {
+                        //  del(key, expireStore)
+                        //}
                     });
                 }
             });
         }, 3 * 60 * 1000);
     }
-    return store;
+    return expireStore;
 }
 function get(key, store = getDefaultStore()) {
     let req;
@@ -70,9 +71,14 @@ function set(key, value, store = getDefaultStore(), expire = 0) {
             console.log(store.dbName);
             store = getExpireStore(store.dbName);
             console.log(store);
-            let ts = getCurrentTime();
+            let expireItem = {
+                timestamp: getCurrentTime(),
+                store: store.storeName,
+                key: key
+            };
+            key = store.dbName + '_' + key;
             store._withIDBStore('readwrite', store => {
-                store.put(key, ts + expire);
+                store.put(expireItem, key);
             });
         }
     });
