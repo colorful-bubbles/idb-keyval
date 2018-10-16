@@ -70,15 +70,15 @@ function set(key, value, store = getDefaultStore(), expire = 0) {
             console.log('setting key to expire');
             // Get expired keys store for this DB:
             console.log(store.dbName);
-            store = getExpireStore(store.dbName);
-            console.log(store);
+            let expStore = getExpireStore(store.dbName);
+            console.log(expStore);
             let expireItem = {
                 timestamp: getCurrentTime(),
                 store: store.storeName,
                 key: key
             };
             key = store.dbName + '_' + key;
-            store._withIDBStore('readwrite', store => {
+            expStore._withIDBStore('readwrite', store => {
                 store.put(expireItem, key);
             });
         }
