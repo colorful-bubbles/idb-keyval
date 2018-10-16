@@ -25,14 +25,31 @@ class Store {
 }
 let store;
 let expireStore;
+function getCurrentTime() {
+    return Math.round((new Date()).getTime() / 1000);
+}
 function getDefaultStore() {
     if (!store)
         store = new Store();
     return store;
 }
 function getExpireStore(dbName) {
-    if (!expireStore)
+    if (!expireStore) {
         expireStore = new Store(dbName, 'keysToExpire');
+        // Every 3 minutes, check which key should be removed:
+        window.setInterval(function () {
+            keys(expireStore).then(keys => {
+                let ts = getCurrentTime();
+                for (let key of keys) {
+                    get(key, expireStore).then(val => {
+                        if (val < ts) {
+                            del(key, expireStore);
+                        }
+                    });
+                }
+            });
+        }, 3 * 60 * 1000);
+    }
     return store;
 }
 function get(key, store = getDefaultStore()) {
@@ -52,7 +69,7 @@ function set(key, value, expire = 0, store = getDefaultStore()) {
             console.log(store.dbName);
             store = getExpireStore(store.dbName);
             console.log(store);
-            let ts = Math.round((new Date()).getTime() / 1000);
+            let ts = getCurrentTime();
             store._withIDBStore('readwrite', store => {
                 store.put(key, ts + expire);
             });
