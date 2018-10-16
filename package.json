@@ -13,7 +13,7 @@
     },
     "repository": {
         "type": "git",
-        "url": "git+https://github.com/jakearchibald/idb-keyval.git"
+        "url": "git+https://github.com/colorful-bubbles/idb-keyval"
     },
     "keywords": [
         "idb",
@@ -30,9 +30,9 @@
     ],
     "license": "Apache-2.0",
     "bugs": {
-        "url": "https://github.com/jakearchibald/idb-keyval/issues"
+        "url": "https://github.com/colorful-bubbles/idb-keyval/issues"
     },
-    "homepage": "https://github.com/jakearchibald/idb-keyval#readme",
+    "homepage": "https://github.com/colorful-bubbles/idb-keyval#readme",
     "devDependencies": {
         "babel-cli": "^6.26.0",
         "babel-preset-env": "^1.6.1",

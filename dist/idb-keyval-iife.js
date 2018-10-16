@@ -59,7 +59,7 @@ function get(key, store = getDefaultStore()) {
         req = store.get(key);
     }).then(() => req.result);
 }
-function set(key, value, expire = 0, store = getDefaultStore()) {
+function set(key, value, store = getDefaultStore(), expire = 0) {
     return store._withIDBStore('readwrite', store => {
         store.put(value, key);
     }).then(function () {
