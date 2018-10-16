@@ -24,6 +24,10 @@ export class Store {
   }
 }
 
+interface KeysToExpireList {
+  [key: string]: number;
+}
+
 let store: Store;
 
 function getDefaultStore() {
@@ -38,9 +42,37 @@ export function get<Type>(key: IDBValidKey, store = getDefaultStore()): Promise<
   }).then(() => req.result);
 }
 
-export function set(key: IDBValidKey, value: any, store = getDefaultStore()): Promise<void> {
+export function set(key: IDBValidKey, value: any, expire = 0, store = getDefaultStore()): Promise<void> {
   return store._withIDBStore('readwrite', store => {
     store.put(value, key);
+  }).then(function(){
+    // If this key should expire:
+    if (expire) {
+      //let storeContext = store;
+      // Get all keys that will expire:
+      get<KeysToExpireList>('_keysToExpire').then(val => {
+        // If there is no _keysToExpire yet:
+        if (!val) {
+          val = {};
+        }
+
+        // Transform key into string:
+        if (key instanceof Date) {
+          key = key.getTime();
+        }
+        else if (key instanceof Array) {
+          key = key.toString();
+        }
+
+        // Calculate when this key should expire:
+        let ts = Math.round((new Date()).getTime() / 1000);
+        val[key] = ts + expire;
+
+        store._withIDBStore('readwrite', store => {
+          store.put(val, '_keysToExpire');
+        });
+      });
+    }
   });
 }
 

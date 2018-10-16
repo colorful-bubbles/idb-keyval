@@ -35,9 +35,34 @@ function get(key, store = getDefaultStore()) {
         req = store.get(key);
     }).then(() => req.result);
 }
-function set(key, value, store = getDefaultStore()) {
+function set(key, value, expire = 0, store = getDefaultStore()) {
     return store._withIDBStore('readwrite', store => {
         store.put(value, key);
+    }).then(function () {
+        // If this key should expire:
+        if (expire) {
+            //let storeContext = store;
+            // Get all keys that will expire:
+            get('_keysToExpire').then(val => {
+                // If there is no _keysToExpire yet:
+                if (!val) {
+                    val = {};
+                }
+                // Transform key into string:
+                if (key instanceof Date) {
+                    key = key.getTime();
+                }
+                else if (key instanceof Array) {
+                    key = key.toString();
+                }
+                // Calculate when this key should expire:
+                let ts = Math.round((new Date()).getTime() / 1000);
+                val[key] = ts + expire;
+                store._withIDBStore('readwrite', store => {
+                    store.put(val, '_keysToExpire');
+                });
+            });
+        }
     });
 }
 function del(key, store = getDefaultStore()) {
