@@ -1,14 +1,17 @@
 export class Store {
   readonly _dbp: Promise<IDBDatabase>;
 
-  constructor(readonly dbName = 'keyval-store', readonly storeName = 'keyval') {
+  constructor(readonly dbName = 'keyval-store', readonly storeName = 'keyval', version = 1) {
     this._dbp = new Promise((resolve, reject) => {
-      const openreq = indexedDB.open(dbName, 1);
+      const openreq = indexedDB.open(dbName, version);
       openreq.onerror = () => reject(openreq.error);
       openreq.onsuccess = () => resolve(openreq.result);
 
       // First time setup: create an empty object store
       openreq.onupgradeneeded = () => {
+        if (!openreq.result.objectStoreNames.contains('keysToExpire'))
+          openreq.result.createObjectStore('keysToExpire');
+
         openreq.result.createObjectStore(storeName);
       };
     });
@@ -37,6 +40,10 @@ function getCurrentTime(): number {
   return Math.round((new Date()).getTime() / 1000);
 }
 
+function getStore(dbName: string, storeName: string) {
+  return new Store(dbName, storeName);
+}
+
 function getDefaultStore() {
   if (!store) store = new Store();
   return store;
@@ -53,10 +60,11 @@ function getExpireStore(dbName: string) {
 
         for (let key of keys) {
           get(key, expireStore).then(val => {
-            console.log(val)
-            //if (val && val < ts) {
-            //  del(key, expireStore)
-            //}
+            let fixedVal: any = val;
+            if (fixedVal && fixedVal.timestamp < ts) {
+              del(fixedVal.key, getStore(dbName, fixedVal.store))
+              del(key, expireStore)
+            }
           })
         }
       });
@@ -78,11 +86,8 @@ export function set(key: IDBValidKey, value: any, store = getDefaultStore(), exp
   }).then(function(){
     // If this key should expire:
     if (expire) {
-      console.log('setting key to expire')
       // Get expired keys store for this DB:
-      console.log(store.dbName)
       let expStore = getExpireStore(store.dbName);
-      console.log(expStore)
 
       let expireItem: ExpireStoreItem = {
         timestamp: getCurrentTime(),
@@ -90,7 +95,7 @@ export function set(key: IDBValidKey, value: any, store = getDefaultStore(), exp
         key: key
       }
 
-      key = store.dbName +'_'+ key;
+      key = store.storeName +'_'+ key;
 
       expStore._withIDBStore('readwrite', store => {
         store.put(expireItem, key);

@@ -1,15 +1,17 @@
 define(['exports'], function (exports) { 'use strict';
 
 class Store {
-    constructor(dbName = 'keyval-store', storeName = 'keyval') {
+    constructor(dbName = 'keyval-store', storeName = 'keyval', version = 1) {
         this.dbName = dbName;
         this.storeName = storeName;
         this._dbp = new Promise((resolve, reject) => {
-            const openreq = indexedDB.open(dbName, 1);
+            const openreq = indexedDB.open(dbName, version);
             openreq.onerror = () => reject(openreq.error);
             openreq.onsuccess = () => resolve(openreq.result);
             // First time setup: create an empty object store
             openreq.onupgradeneeded = () => {
+                if (!openreq.result.objectStoreNames.contains('keysToExpire'))
+                    openreq.result.createObjectStore('keysToExpire');
                 openreq.result.createObjectStore(storeName);
             };
         });
@@ -28,6 +30,9 @@ let expireStore;
 function getCurrentTime() {
     return Math.round((new Date()).getTime() / 1000);
 }
+function getStore(dbName, storeName) {
+    return new Store(dbName, storeName);
+}
 function getDefaultStore() {
     if (!store)
         store = new Store();
@@ -42,10 +47,11 @@ function getExpireStore(dbName) {
                 let ts = getCurrentTime();
                 for (let key of keys) {
                     get(key, expireStore).then(val => {
-                        console.log(val);
-                        //if (val && val < ts) {
-                        //  del(key, expireStore)
-                        //}
+                        let fixedVal = val;
+                        if (fixedVal && fixedVal.timestamp < ts) {
+                            del(fixedVal.key, getStore(dbName, fixedVal.store));
+                            del(key, expireStore);
+                        }
                     });
                 }
             });
@@ -65,17 +71,14 @@ function set(key, value, store = getDefaultStore(), expire = 0) {
     }).then(function () {
         // If this key should expire:
         if (expire) {
-            console.log('setting key to expire');
             // Get expired keys store for this DB:
-            console.log(store.dbName);
             let expStore = getExpireStore(store.dbName);
-            console.log(expStore);
             let expireItem = {
                 timestamp: getCurrentTime(),
                 store: store.storeName,
                 key: key
             };
-            key = store.dbName + '_' + key;
+            key = store.storeName + '_' + key;
             expStore._withIDBStore('readwrite', store => {
                 store.put(expireItem, key);
             });

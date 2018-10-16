@@ -2,7 +2,7 @@ export declare class Store {
     readonly dbName: string;
     readonly storeName: string;
     readonly _dbp: Promise<IDBDatabase>;
-    constructor(dbName?: string, storeName?: string);
+    constructor(dbName?: string, storeName?: string, version?: number);
     _withIDBStore(type: IDBTransactionMode, callback: ((store: IDBObjectStore) => void)): Promise<void>;
 }
 export declare function get<Type>(key: IDBValidKey, store?: Store): Promise<Type>;
