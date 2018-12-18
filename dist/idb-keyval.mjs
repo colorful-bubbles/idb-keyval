@@ -39,7 +39,7 @@ function getDefaultStore() {
 function getExpireStore(dbName) {
     if (!expireStore) {
         expireStore = new Store(dbName, 'keysToExpire');
-        // Every 3 minutes, check which key should be removed:
+        // Every 60 seconds, check which key should be removed:
         window.setInterval(function () {
             keys(expireStore).then(keys => {
                 let ts = getCurrentTime();
@@ -53,15 +53,28 @@ function getExpireStore(dbName) {
                     });
                 }
             });
-        }, 3 * 60 * 1000);
+        }, 60 * 1000);
     }
     return expireStore;
 }
 function get(key, store = getDefaultStore()) {
     let req;
-    return store._withIDBStore('readonly', store => {
-        req = store.get(key);
-    }).then(() => req.result);
+    let storeName = store.storeName;
+    // Check if this key exists in keysToExpire:
+    let expiredCheck = get(storeName + '_' + key).then(val => {
+        let ts = getCurrentTime();
+        let fixedVal = val;
+        // Key is expired, remove it:
+        if (fixedVal && fixedVal.timestamp < ts) {
+            del(fixedVal.key, getStore(storeName, fixedVal.store));
+            del(key, expireStore);
+        }
+    });
+    return expiredCheck.then(() => {
+        return store._withIDBStore('readonly', store => {
+            req = store.get(key);
+        }).then(() => req.result);
+    });
 }
 function set(key, value, store = getDefaultStore(), expire = 0) {
     return store._withIDBStore('readwrite', store => {
