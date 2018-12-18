@@ -49,7 +49,7 @@ function getExpireStore(dbName) {
                 for (let key of keys) {
                     get(key, expireStore).then(val => {
                         let fixedVal = val;
-                        if (fixedVal && fixedVal.validUntil < ts) {
+                        if (fixedVal && (!fixedVal.validUntil || fixedVal.validUntil < ts)) {
                             del(fixedVal.key, getStore(dbName, fixedVal.store));
                             del(key, expireStore);
                         }
@@ -75,7 +75,7 @@ function get(key, store = getDefaultStore()) {
             let ts = getCurrentTime();
             let fixedVal = val;
             // Key is expired, remove it:
-            if (fixedVal && fixedVal.validUntil < ts) {
+            if (fixedVal && (!fixedVal.validUntil || fixedVal.validUntil < ts)) {
                 // console.log('Deleting expired key (' + fixedVal.validUntil+' < '+ts+'): ' + key)
                 deletedPromise = del(key, store);
                 deletedPromise2 = del(storeName + '_' + key, expireStore);
