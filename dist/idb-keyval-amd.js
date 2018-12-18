@@ -48,7 +48,7 @@ function getExpireStore(dbName) {
                 for (let key of keys) {
                     get(key, expireStore).then(val => {
                         let fixedVal = val;
-                        if (fixedVal && fixedVal.timestamp < ts) {
+                        if (fixedVal && fixedVal.validUntil < ts) {
                             del(fixedVal.key, getStore(dbName, fixedVal.store));
                             del(key, expireStore);
                         }
@@ -62,24 +62,49 @@ function getExpireStore(dbName) {
 function get(key, store = getDefaultStore()) {
     let req;
     let storeName = store.storeName;
-    // Check if this key exists in keysToExpire:
-    let expiredCheck = get(storeName + '_' + key).then(val => {
-        let ts = getCurrentTime();
-        let fixedVal = val;
-        // Key is expired, remove it:
-        if (fixedVal && fixedVal.timestamp < ts) {
-            del(fixedVal.key, getStore(storeName, fixedVal.store));
-            del(key, expireStore);
+    if (storeName != 'keysToExpire') {
+        if (!expireStore) {
+            expireStore = getExpireStore(store.dbName);
         }
-    });
-    let p = store._withIDBStore('readonly', store => {
-        req = store.get(key);
-    }).then(() => req.result);
-    return new Promise(function (resolve, reject) {
-        Promise.all([expiredCheck, p]).then(val => {
-            resolve(val[1]);
+        // console.log('Checking if key is expired: '+ key)
+        let deletedPromise = null;
+        let deletedPromise2 = null;
+        // Check if this key exists in keysToExpire:
+        let expiredCheck = get(storeName + '_' + key, expireStore).then(val => {
+            let ts = getCurrentTime();
+            let fixedVal = val;
+            // Key is expired, remove it:
+            if (fixedVal && fixedVal.validUntil < ts) {
+                // console.log('Deleting expired key (' + fixedVal.validUntil+' < '+ts+'): ' + key)
+                deletedPromise = del(key, store);
+                deletedPromise2 = del(storeName + '_' + key, expireStore);
+            }
         });
-    });
+        return new Promise(function (resolve, reject) {
+            expiredCheck.then(() => {
+                if (deletedPromise && deletedPromise2) {
+                    // console.log('Waiting for delete promises to complete for key: ' + key)
+                    Promise.all([deletedPromise, deletedPromise2]).then(val => {
+                        resolve(undefined);
+                    });
+                }
+                else {
+                    // console.log('Key was not expired. Returning real value for key: ' + key)
+                    let p = store._withIDBStore('readonly', store => {
+                        req = store.get(key);
+                    }).then(() => req.result);
+                    p.then(val => {
+                        resolve(val);
+                    });
+                }
+            });
+        });
+    }
+    else {
+        return store._withIDBStore('readonly', store => {
+            req = store.get(key);
+        }).then(() => req.result);
+    }
 }
 function set(key, value, store = getDefaultStore(), expire = 0) {
     return store._withIDBStore('readwrite', store => {
@@ -91,6 +116,7 @@ function set(key, value, store = getDefaultStore(), expire = 0) {
             let expStore = getExpireStore(store.dbName);
             let expireItem = {
                 timestamp: getCurrentTime(),
+                validUntil: getCurrentTime() + expire,
                 store: store.storeName,
                 key: key
             };
