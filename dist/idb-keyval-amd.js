@@ -72,10 +72,13 @@ function get(key, store = getDefaultStore()) {
             del(key, expireStore);
         }
     });
-    return expiredCheck.then(() => {
-        return store._withIDBStore('readonly', store => {
-            req = store.get(key);
-        }).then(() => req.result);
+    let p = store._withIDBStore('readonly', store => {
+        req = store.get(key);
+    }).then(() => req.result);
+    return new Promise(function (resolve, reject) {
+        Promise.all([expiredCheck, p]).then(val => {
+            resolve(val[1]);
+        });
     });
 }
 function set(key, value, store = getDefaultStore(), expire = 0) {
