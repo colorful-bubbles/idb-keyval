@@ -5,7 +5,11 @@ export class Store {
     this._dbp = new Promise((resolve, reject) => {
       const openreq = indexedDB.open(dbName, version);
       openreq.onerror = () => reject(openreq.error);
-      openreq.onsuccess = () => resolve(openreq.result);
+      openreq.onsuccess = () => {
+        resolve(openreq.result);
+        // Init the expired store:
+        getExpireStore(dbName);
+      }
 
       // First time setup: create an empty object store
       openreq.onupgradeneeded = () => {
@@ -53,7 +57,7 @@ function getExpireStore(dbName: string) {
   if (!expireStore) {
     expireStore = new Store(dbName, 'keysToExpire');
 
-    // Every 3 minutes, check which key should be removed:
+    // Every 60 seconds, check which key should be removed:
     window.setInterval(function () {
       keys(expireStore).then(keys => {
         let ts = getCurrentTime();
@@ -68,7 +72,7 @@ function getExpireStore(dbName: string) {
           })
         }
       });
-    }, 3 * 60 * 1000);
+    }, 60 * 1000);
   }
   return expireStore;
 }
