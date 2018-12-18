@@ -5,11 +5,7 @@ export class Store {
     this._dbp = new Promise((resolve, reject) => {
       const openreq = indexedDB.open(dbName, version);
       openreq.onerror = () => reject(openreq.error);
-      openreq.onsuccess = () => {
-        resolve(openreq.result);
-        // Init the expired store:
-        getExpireStore(dbName);
-      }
+      openreq.onsuccess = () => resolve(openreq.result);
 
       // First time setup: create an empty object store
       openreq.onupgradeneeded = () => {
@@ -79,9 +75,25 @@ function getExpireStore(dbName: string) {
 
 export function get<Type>(key: IDBValidKey, store = getDefaultStore()): Promise<Type> {
   let req: IDBRequest;
-  return store._withIDBStore('readonly', store => {
-    req = store.get(key);
-  }).then(() => req.result);
+  let storeName = store.storeName;
+
+  // Check if this key exists in keysToExpire:
+  let expiredCheck = get(storeName + '_' + key).then(val => {
+    let ts = getCurrentTime();
+    let fixedVal: any = val;
+
+    // Key is expired, remove it:
+    if (fixedVal && fixedVal.timestamp < ts) {
+      del(fixedVal.key, getStore(storeName, fixedVal.store))
+      del(key, expireStore)
+    }
+  });
+
+  return expiredCheck.then(() => {
+    return store._withIDBStore('readonly', store => {
+      req = store.get(key);
+    }).then(() => req.result);
+  });
 }
 
 export function set(key: IDBValidKey, value: any, store = getDefaultStore(), expire = 0): Promise<void> {
